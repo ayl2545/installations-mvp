@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import DevAuth from "./components/DevAuth";
+import ClientLayout from "./components/ClientLayout";
 
 export const metadata: Metadata = {
   title: "Installations MVP",
@@ -13,10 +13,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <DevAuth />
-        {children}
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useI18n, useStatusTranslation, useUpdateTypeTranslation } from '@/lib/i18n';
 
 interface Team {
   id: string;
@@ -20,23 +22,54 @@ interface JobUpdate {
   message: string;
   needs: string | null;
   createdAt: string;
-  createdBy: User;
+  createdBy: { id: string; name: string };
 }
 
 interface Order {
   id: string;
+  externalRef: string | null;
+  customerName: string;
+  siteAddress: string;
+  description: string;
   status: string;
   assignedTeamId: string | null;
-  teams: Team[];
+  assignedTeam: { id: string; name: string } | null;
+  assignedUser: User | null;
+  createdAt: string;
+  updatedAt: string;
   updates: JobUpdate[];
 }
 
 export default function OrderDetailsClient({ order, teams }: { order: Order; teams: Team[] }) {
+  const { t, lang } = useI18n();
+  const translateStatus = useStatusTranslation();
+  const translateUpdateType = useUpdateTypeTranslation();
   const router = useRouter();
   const [assigning, setAssigning] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateForm, setUpdateForm] = useState({ type: 'NOTE', message: '', needs: '' });
+
+  const getStatusClass = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'NEW': 'badge-new',
+      'ASSIGNED': 'badge-assigned',
+      'IN_PROGRESS': 'badge-in-progress',
+      'BLOCKED': 'badge-blocked',
+      'DONE': 'badge-done',
+    };
+    return statusMap[status] || '';
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   async function handleAssign(teamId: string) {
     setAssigning(true);
@@ -112,158 +145,202 @@ export default function OrderDetailsClient({ order, teams }: { order: Order; tea
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: '30px' }}>
-        <h2>Assign to Team</h2>
-        {!order.assignedTeamId ? (
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <select
-              onChange={(e) => e.target.value && handleAssign(e.target.value)}
-              disabled={assigning}
-              style={{ padding: '5px' }}
-            >
-              <option value="">Select team...</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>{team.name}</option>
-              ))}
-            </select>
-            {assigning && <span>Assigning...</span>}
+    <div className="page">
+      <div className="container">
+        <Link href="/admin/orders" className="btn btn-secondary mb-lg">
+          ← {t('app.back')}
+        </Link>
+
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">{order.customerName}</h1>
+            <p className="text-muted">{order.externalRef || t('orders.externalRef')}: {order.externalRef || '-'}</p>
           </div>
-        ) : (
-          <p>Order is assigned to a team</p>
-        )}
-      </div>
-
-      <div style={{ marginBottom: '30px' }}>
-        <h2>Update Status</h2>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {['ASSIGNED', 'IN_PROGRESS', 'BLOCKED', 'DONE'].map((status) => (
-            <button
-              key={status}
-              onClick={() => handleStatusChange(status)}
-              disabled={updatingStatus || order.status === status}
-              style={{
-                padding: '8px 16px',
-                background: order.status === status ? '#0070f3' : '#f0f0f0',
-                color: order.status === status ? 'white' : 'black',
-                border: '1px solid #ddd',
-                borderRadius: '5px',
-                cursor: updatingStatus ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ marginBottom: '30px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <h2>Updates</h2>
-          <button
-            onClick={() => setShowUpdateForm(!showUpdateForm)}
-            style={{
-              padding: '8px 16px',
-              background: '#0070f3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-            }}
-          >
-            Add Update
-          </button>
+          <span className={`badge ${getStatusClass(order.status)}`} style={{ fontSize: '1rem', padding: '0.5rem 1rem' }}>
+            {translateStatus(order.status)}
+          </span>
         </div>
 
-        {showUpdateForm && (
-          <form onSubmit={handleAddUpdate} style={{ marginBottom: '20px', padding: '15px', background: '#f9f9f9', borderRadius: '5px' }}>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Type</label>
-              <select
-                value={updateForm.type}
-                onChange={(e) => setUpdateForm({ ...updateForm, type: e.target.value })}
-                style={{ width: '100%', padding: '5px' }}
-              >
-                <option value="PROGRESS">PROGRESS</option>
-                <option value="BLOCKER">BLOCKER</option>
-                <option value="COMPLETE">COMPLETE</option>
-                <option value="NOTE">NOTE</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Message *</label>
-              <textarea
-                value={updateForm.message}
-                onChange={(e) => setUpdateForm({ ...updateForm, message: e.target.value })}
-                required
-                rows={3}
-                style={{ width: '100%', padding: '5px' }}
-              />
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Needs (optional, for BLOCKER)</label>
-              <input
-                type="text"
-                value={updateForm.needs}
-                onChange={(e) => setUpdateForm({ ...updateForm, needs: e.target.value })}
-                placeholder='e.g., ["Item 1", "Item 2"] or free text'
-                style={{ width: '100%', padding: '5px' }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="submit"
-                style={{
-                  padding: '8px 16px',
-                  background: '#0070f3',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                }}
-              >
-                Add Update
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowUpdateForm(false);
-                  setUpdateForm({ type: 'NOTE', message: '', needs: '' });
-                }}
-                style={{
-                  padding: '8px 16px',
-                  background: '#f0f0f0',
-                  border: '1px solid #ddd',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {order.updates.map((update) => (
-            <div key={update.id} style={{ padding: '15px', background: '#f9f9f9', borderRadius: '5px', border: '1px solid #ddd' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                <strong>{update.type}</strong>
-                <span style={{ color: '#666', fontSize: '0.9em' }}>
-                  {new Date(update.createdAt).toLocaleString()} by {update.createdBy.name}
-                </span>
+        <div className="card mb-lg">
+          <div className="card-header">
+            <h3>{t('app.details')}</h3>
+          </div>
+          <div className="card-body">
+            <div className="details-grid">
+              <div className="details-item">
+                <span className="details-label">{t('orders.customer')}</span>
+                <span className="details-value">{order.customerName}</span>
               </div>
-              <div style={{ marginBottom: '5px' }}>{update.message}</div>
-              {update.needs && (
-                <div style={{ padding: '5px', background: '#fff3cd', borderRadius: '3px', fontSize: '0.9em' }}>
-                  <strong>Needs:</strong> {update.needs}
+              <div className="details-item">
+                <span className="details-label">{t('orders.address')}</span>
+                <span className="details-value">{order.siteAddress}</span>
+              </div>
+              <div className="details-item">
+                <span className="details-label">{t('orders.team')}</span>
+                <span className="details-value">{order.assignedTeam?.name || t('orders.unassigned')}</span>
+              </div>
+              <div className="details-item">
+                <span className="details-label">{t('orders.assignedTo')}</span>
+                <span className="details-value">{order.assignedUser?.name || t('orders.unassigned')}</span>
+              </div>
+              <div className="details-item">
+                <span className="details-label">{t('orders.createdAt')}</span>
+                <span className="details-value">{formatDate(order.createdAt)}</span>
+              </div>
+              <div className="details-item">
+                <span className="details-label">{t('orders.updatedAt')}</span>
+                <span className="details-value">{formatDate(order.updatedAt)}</span>
+              </div>
+              <div className="details-item" style={{ gridColumn: '1 / -1' }}>
+                <span className="details-label">{t('orders.description')}</span>
+                <span className="details-value">{order.description}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid-2">
+          {/* Assign to Team */}
+          <div className="card">
+            <div className="card-header">
+              <h3>{t('orders.assignToTeam')}</h3>
+            </div>
+            <div className="card-body">
+              {!order.assignedTeamId ? (
+                <div className="form-group">
+                  <select
+                    className="form-select"
+                    onChange={(e) => e.target.value && handleAssign(e.target.value)}
+                    disabled={assigning}
+                  >
+                    <option value="">{t('orders.selectTeam')}</option>
+                    {teams.map((team) => (
+                      <option key={team.id} value={team.id}>{team.name}</option>
+                    ))}
+                  </select>
+                  {assigning && <p className="text-muted mt-md">{t('app.loading')}</p>}
+                </div>
+              ) : (
+                <p className="text-muted">{t('orders.assignedTo')}: {order.assignedTeam?.name}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Update Status */}
+          <div className="card">
+            <div className="card-header">
+              <h3>{t('orders.status')}</h3>
+            </div>
+            <div className="card-body">
+              <div className="flex gap-sm" style={{ flexWrap: 'wrap' }}>
+                {['ASSIGNED', 'IN_PROGRESS', 'BLOCKED', 'DONE'].map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => handleStatusChange(status)}
+                    disabled={updatingStatus || order.status === status}
+                    className={`btn ${order.status === status ? 'btn-primary' : 'btn-secondary'}`}
+                  >
+                    {translateStatus(status)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Updates */}
+        <div className="card mt-lg">
+          <div className="card-header flex justify-between items-center">
+            <h3>{t('updates.title')}</h3>
+            <button
+              onClick={() => setShowUpdateForm(!showUpdateForm)}
+              className="btn btn-primary"
+            >
+              + {t('updates.add')}
+            </button>
+          </div>
+          <div className="card-body">
+            {showUpdateForm && (
+              <form onSubmit={handleAddUpdate} className="card mb-lg" style={{ background: 'var(--background)' }}>
+                <div className="card-body">
+                  <div className="form-group">
+                    <label className="form-label">{t('updates.type')}</label>
+                    <select
+                      className="form-select"
+                      value={updateForm.type}
+                      onChange={(e) => setUpdateForm({ ...updateForm, type: e.target.value })}
+                    >
+                      <option value="PROGRESS">{translateUpdateType('PROGRESS')}</option>
+                      <option value="BLOCKER">{translateUpdateType('BLOCKER')}</option>
+                      <option value="COMPLETE">{translateUpdateType('COMPLETE')}</option>
+                      <option value="NOTE">{translateUpdateType('NOTE')}</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('updates.message')} *</label>
+                    <textarea
+                      className="form-textarea"
+                      value={updateForm.message}
+                      onChange={(e) => setUpdateForm({ ...updateForm, message: e.target.value })}
+                      required
+                      rows={3}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('updates.needs')}</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={updateForm.needs}
+                      onChange={(e) => setUpdateForm({ ...updateForm, needs: e.target.value })}
+                      placeholder='e.g., ["Item 1", "Item 2"]'
+                    />
+                  </div>
+                  <div className="flex gap-sm">
+                    <button type="submit" className="btn btn-primary">
+                      {t('updates.add')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUpdateForm(false);
+                        setUpdateForm({ type: 'NOTE', message: '', needs: '' });
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      {t('app.cancel')}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+
+            <div className="timeline">
+              {order.updates.map((update) => (
+                <div key={update.id} className={`timeline-item ${update.type.toLowerCase()}`}>
+                  <div className="timeline-content">
+                    <div className="timeline-header">
+                      <span className="timeline-type">{translateUpdateType(update.type)}</span>
+                      <span className="timeline-date">
+                        {formatDate(update.createdAt)} • {update.createdBy.name}
+                      </span>
+                    </div>
+                    <p className="timeline-message">{update.message}</p>
+                    {update.needs && (
+                      <div className="timeline-needs">
+                        <strong>{t('updates.needs')}:</strong> {update.needs}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {order.updates.length === 0 && (
+                <div className="empty-state">
+                  <p>{t('updates.noUpdates')}</p>
                 </div>
               )}
             </div>
-          ))}
-          {order.updates.length === 0 && (
-            <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>No updates yet</p>
-          )}
+          </div>
         </div>
       </div>
     </div>

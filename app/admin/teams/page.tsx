@@ -22,14 +22,14 @@ export default async function TeamsPage() {
             },
           })
         : null;
-      return { ...team, installer };
+      return {
+        ...team,
+        createdAt: team.createdAt.toISOString(),
+        updatedAt: team.updatedAt.toISOString(),
+        installer,
+      };
     })
   );
 
-  return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h1>Teams</h1>
-      <TeamsClient teams={teamsWithInstallers} />
-    </div>
-  );
+  return <TeamsClient teams={teamsWithInstallers} />;
 }

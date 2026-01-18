@@ -1,16 +1,12 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
+import HomeClient from './HomeClient';
 
 export default async function Home() {
   const user = await getCurrentUser();
 
   if (!user) {
-    return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <h1>Installations MVP</h1>
-        <p>Please select a user from the dev auth selector above.</p>
-      </div>
-    );
+    return <HomeClient />;
   }
 
   if (user.role === 'ADMIN') {

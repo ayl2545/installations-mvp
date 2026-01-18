@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useI18n } from '@/lib/i18n';
 
 interface User {
   id: string;
@@ -11,6 +12,7 @@ interface User {
 }
 
 export default function DevAuth() {
+  const { t, lang, setLang } = useI18n();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,8 +38,6 @@ export default function DevAuth() {
 
   async function loadUsers() {
     try {
-      // We'll need to create an API endpoint to get all users for dev auth
-      // For now, we'll fetch from a simple endpoint
       const res = await fetch('/api/dev-users');
       if (res.ok) {
         const data = await res.json();
@@ -65,38 +65,53 @@ export default function DevAuth() {
     }
   }
 
-  // Prevent hydration mismatch by showing same content on server and client initially
+  function toggleLang() {
+    setLang(lang === 'en' ? 'he' : 'en');
+  }
+
+  function getRoleLabel(role: string) {
+    return role === 'ADMIN' ? t('role.admin') : t('role.installer');
+  }
+
   if (!mounted || loading) {
-    return <div style={{ padding: '10px', background: '#f0f0f0' }}>Loading...</div>;
+    return (
+      <div className="dev-auth">
+        <span>{t('app.loading')}</span>
+      </div>
+    );
   }
 
   return (
-    <div style={{
-      padding: '10px',
-      background: '#f0f0f0',
-      borderBottom: '1px solid #ccc',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-    }}>
-      <strong>Dev Auth:</strong>
-      <select
-        value={currentUser?.id || ''}
-        onChange={(e) => handleLogin(e.target.value)}
-        style={{ padding: '5px' }}
-      >
-        <option value="">Select user...</option>
-        {users.map((user) => (
-          <option key={user.id} value={user.id}>
-            {user.name} ({user.role})
-          </option>
-        ))}
-      </select>
-      {currentUser && (
-        <span style={{ marginLeft: '10px' }}>
-          Logged in as: <strong>{currentUser.name}</strong> ({currentUser.role})
-        </span>
-      )}
+    <div className="dev-auth">
+      <div className="dev-auth-left">
+        <strong>🔧 {t('devAuth.title')}</strong>
+        <select
+          value={currentUser?.id || ''}
+          onChange={(e) => handleLogin(e.target.value)}
+        >
+          <option value="">{t('devAuth.selectUser')}</option>
+          {users.map((user) => (
+            <option key={user.id} value={user.id}>
+              {user.name} ({getRoleLabel(user.role)})
+            </option>
+          ))}
+        </select>
+      </div>
+      
+      <div className="dev-auth-right">
+        {currentUser && (
+          <div className="dev-auth-user">
+            <span>{t('devAuth.loggedAs')}:</span>
+            <strong>{currentUser.name}</strong>
+            <span className={`badge badge-${currentUser.role.toLowerCase()}`}>
+              {getRoleLabel(currentUser.role)}
+            </span>
+          </div>
+        )}
+        <button className="lang-toggle" onClick={toggleLang}>
+          {t('devAuth.switchLang')}
+        </button>
+      </div>
     </div>
   );
 }
