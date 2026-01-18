@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import OrdersPageClient from './OrdersPageClient';
 
 export default async function TeamOrdersPage({
@@ -17,7 +18,7 @@ export default async function TeamOrdersPage({
   const params = await searchParams;
   const status = params.status;
 
-  const where: { OR: Array<{ assignedUserId: string } | { assignedTeamId: string | null }>; status?: string } = {
+  const where: Prisma.OrderWhereInput = {
     OR: [
       { assignedUserId: user.id },
       { assignedTeamId: user.teamId },
@@ -25,7 +26,7 @@ export default async function TeamOrdersPage({
   };
 
   if (status) {
-    where.status = status;
+    where.status = status as Prisma.OrderWhereInput['status'];
   }
 
   const orders = await prisma.order.findMany({
@@ -51,7 +52,7 @@ export default async function TeamOrdersPage({
   });
 
   // Serialize dates for client component
-  const serializedOrders = orders.map(order => ({
+  const serializedOrders = orders.map((order: typeof orders[number]) => ({
     ...order,
     scheduledDate: order.scheduledDate?.toISOString() || null,
   }));

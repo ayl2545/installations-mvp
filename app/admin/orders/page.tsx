@@ -1,5 +1,6 @@
 import { requireAdmin } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import OrdersPageClient from './OrdersPageClient';
 
 export default async function AdminOrdersPage({
@@ -12,9 +13,9 @@ export default async function AdminOrdersPage({
   const status = params.status;
   const teamId = params.teamId;
 
-  const where: { status?: string; assignedTeamId?: string } = {};
+  const where: Prisma.OrderWhereInput = {};
   if (status) {
-    where.status = status;
+    where.status = status as Prisma.OrderWhereInput['status'];
   }
   if (teamId) {
     where.assignedTeamId = teamId;

@@ -84,7 +84,7 @@ export async function POST(
     return NextResponse.json({ update }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid request', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request', details: error.issues }, { status: 400 });
     }
     if (error instanceof Error && (error.message === 'Access denied' || error.message === 'Admin access required')) {
       return NextResponse.json({ error: error.message }, { status: 403 });
