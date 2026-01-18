@@ -1,0 +1,92 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  INSTALLER
+}
+
+enum OrderStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum JobUpdateType {
+  PROGRESS
+  BLOCKER
+  COMPLETE
+  NOTE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?  @unique
+  role      UserRole
+  teamId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdUpdates JobUpdate[] @relation("CreatedBy")
+  assignedOrders Order[]     @relation("AssignedOrders")
+
+  @@index([teamId])
+}
+
+model Team {
+  id              String  @id @default(cuid())
+  name            String
+  installerUserId String? @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orders Order[]
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  externalRef     String?
+  customerName   String
+  siteAddress    String
+  description    String
+  status         OrderStatus @default(NEW)
+  assignedTeamId String?
+  assignedUserId String?
+  assignedTeam   Team?       @relation(fields: [assignedTeamId], references: [id], onDelete: SetNull)
+  assignedUser   User?       @relation("AssignedOrders", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  updates JobUpdate[]
+
+  @@index([assignedTeamId])
+  @@index([assignedUserId])
+  @@index([status])
+}
+
+model JobUpdate {
+  id              String        @id @default(cuid())
+  orderId         String
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdByUserId String
+  createdBy       User          @relation("CreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  type            JobUpdateType
+  message         String
+  needs           String?       // JSON array or text
+  createdAt       DateTime      @default(now())
+
+  @@index([orderId])
+  @@index([createdByUserId])
+}
