@@ -29,6 +29,8 @@ interface Order {
   status: string;
   assignedTeam: { id: string; name: string } | null;
   assignedUser: User | null;
+  scheduledDate: string | null;
+  estimatedDays: number | null;
   createdAt: string;
   updatedAt: string;
   updates: JobUpdate[];
@@ -42,6 +44,10 @@ export default function OrderDetailsClient({ order }: { order: Order }) {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateForm, setUpdateForm] = useState({ type: 'NOTE', message: '', needs: '' });
+  
+  // State for blocked reason modal
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const [blockedReason, setBlockedReason] = useState('');
 
   const getStatusClass = (status: string) => {
     const statusMap: Record<string, string> = {
@@ -64,13 +70,46 @@ export default function OrderDetailsClient({ order }: { order: Order }) {
     });
   };
 
+  const formatDateOnly = (date: string) => {
+    return new Date(date).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
   async function handleStatusChange(status: string) {
+    // If changing to BLOCKED, show modal for reason
+    if (status === 'BLOCKED') {
+      setShowBlockedModal(true);
+      return;
+    }
+    
+    await updateStatus(status);
+  }
+
+  async function handleBlockedSubmit() {
+    if (!blockedReason.trim()) {
+      alert(t('orders.blockedReasonRequired'));
+      return;
+    }
+    
+    await updateStatus('BLOCKED', blockedReason);
+    setShowBlockedModal(false);
+    setBlockedReason('');
+  }
+
+  async function updateStatus(status: string, blockedReasonText?: string) {
     setUpdatingStatus(true);
     try {
       const res = await fetch(`/api/orders/${order.id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ 
+          status,
+          ...(blockedReasonText ? { blockedReason: blockedReasonText } : {}),
+        }),
       });
 
       if (!res.ok) {
@@ -131,6 +170,31 @@ export default function OrderDetailsClient({ order }: { order: Order }) {
           </span>
         </div>
 
+        {/* Scheduled Date Banner */}
+        {order.scheduledDate && (
+          <div style={{
+            padding: 'var(--space-md) var(--space-lg)',
+            background: 'var(--primary-light)',
+            borderRadius: 'var(--radius-lg)',
+            marginBottom: 'var(--space-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-md)',
+          }}>
+            <span style={{ fontSize: '1.5rem' }}>📅</span>
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                {t('orders.scheduledDate')}: {formatDateOnly(order.scheduledDate)}
+              </div>
+              {order.estimatedDays && (
+                <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                  {order.estimatedDays} {t('orders.days')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="card mb-lg">
           <div className="card-header">
             <h3>{t('app.details')}</h3>
@@ -181,6 +245,59 @@ export default function OrderDetailsClient({ order }: { order: Order }) {
             </div>
           </div>
         </div>
+
+        {/* Blocked Reason Modal */}
+        {showBlockedModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}>
+            <div className="card" style={{ maxWidth: '500px', width: '90%' }}>
+              <div className="card-header">
+                <h3>{t('orders.blockedReason')}</h3>
+              </div>
+              <div className="card-body">
+                <div className="form-group">
+                  <label className="form-label">{t('orders.blockedReason')} *</label>
+                  <textarea
+                    className="form-textarea"
+                    value={blockedReason}
+                    onChange={(e) => setBlockedReason(e.target.value)}
+                    rows={3}
+                    placeholder={t('orders.blockedReasonRequired')}
+                    required
+                  />
+                </div>
+                <div className="flex gap-sm">
+                  <button
+                    onClick={handleBlockedSubmit}
+                    disabled={updatingStatus}
+                    className="btn btn-danger"
+                  >
+                    {updatingStatus ? t('app.loading') : t('app.save')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowBlockedModal(false);
+                      setBlockedReason('');
+                    }}
+                    className="btn btn-secondary"
+                  >
+                    {t('app.cancel')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Updates */}
         <div className="card">

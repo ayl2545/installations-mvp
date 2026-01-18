@@ -44,8 +44,17 @@ export default async function TeamOrdersPage({
         },
       },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: [
+      { scheduledDate: 'asc' }, // Primary sort: by scheduled date
+      { createdAt: 'desc' },    // Secondary sort: by creation date for orders without scheduled date
+    ],
   });
 
-  return <OrdersPageClient orders={orders} />;
+  // Serialize dates for client component
+  const serializedOrders = orders.map(order => ({
+    ...order,
+    scheduledDate: order.scheduledDate?.toISOString() || null,
+  }));
+
+  return <OrdersPageClient orders={serializedOrders} />;
 }

@@ -10,12 +10,14 @@ interface Order {
   customerName: string;
   siteAddress: string;
   status: string;
+  scheduledDate: string | null;
+  estimatedDays: number | null;
   assignedTeam: { id: string; name: string } | null;
   assignedUser: { id: string; name: string } | null;
 }
 
 export default function OrdersPageClient({ orders }: { orders: Order[] }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const translateStatus = useStatusTranslation();
   const searchParams = useSearchParams();
   const currentStatus = searchParams.get('status') || '';
@@ -31,6 +33,14 @@ export default function OrdersPageClient({ orders }: { orders: Order[] }) {
       'DONE': 'badge-done',
     };
     return statusMap[status] || '';
+  };
+
+  const formatDateOnly = (date: string) => {
+    return new Date(date).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   return (
@@ -76,6 +86,22 @@ export default function OrdersPageClient({ orders }: { orders: Order[] }) {
                     </span>
                   </div>
                   <p className="order-card-address">{order.siteAddress}</p>
+                  {order.scheduledDate && (
+                    <div style={{ 
+                      marginTop: 'var(--space-sm)', 
+                      padding: 'var(--space-xs) var(--space-sm)',
+                      background: 'var(--primary-light)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.75rem',
+                      color: 'var(--primary)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 'var(--space-xs)'
+                    }}>
+                      📅 {formatDateOnly(order.scheduledDate)}
+                      {order.estimatedDays && ` • ${order.estimatedDays} ${t('orders.days')}`}
+                    </div>
+                  )}
                 </div>
               </Link>
             ))}

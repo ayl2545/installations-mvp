@@ -69,6 +69,13 @@ const translations: Record<Language, Translations> = {
     'orders.createNew': 'Create New Order',
     'orders.filterByStatus': 'Filter by Status',
     'orders.filterByTeam': 'Filter by Team',
+    'orders.scheduledDate': 'Scheduled Date',
+    'orders.estimatedDays': 'Estimated Days',
+    'orders.selectDate': 'Select date...',
+    'orders.days': 'days',
+    'orders.dateConflict': 'Date conflict with another order',
+    'orders.blockedReason': 'Reason for blocking',
+    'orders.blockedReasonRequired': 'Please provide a reason for blocking',
     
     // Order Status
     'status.new': 'New',
@@ -172,6 +179,13 @@ const translations: Record<Language, Translations> = {
     'orders.createNew': 'צור הזמנה חדשה',
     'orders.filterByStatus': 'סנן לפי סטטוס',
     'orders.filterByTeam': 'סנן לפי צוות',
+    'orders.scheduledDate': 'תאריך מתוכנן',
+    'orders.estimatedDays': 'מספר ימים',
+    'orders.selectDate': 'בחר תאריך...',
+    'orders.days': 'ימים',
+    'orders.dateConflict': 'התנגשות עם הזמנה אחרת בתאריכים אלו',
+    'orders.blockedReason': 'סיבת החסימה',
+    'orders.blockedReasonRequired': 'נדרש להזין סיבה לחסימה',
     
     // Order Status
     'status.new': 'חדש',
@@ -227,7 +241,7 @@ interface I18nContextType {
 const I18nContext = createContext<I18nContextType | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Language>('en');
+  const [lang, setLangState] = useState<Language>('he'); // Default to Hebrew
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -236,6 +250,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     if (saved && (saved === 'en' || saved === 'he')) {
       setLangState(saved);
     }
+    // If no saved preference, keep Hebrew as default
   }, []);
 
   const setLang = (newLang: Language) => {
@@ -264,12 +279,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 export function useI18n() {
   const context = useContext(I18nContext);
   if (!context) {
-    // Return default values if not in provider (SSR)
+    // Return default values if not in provider (SSR) - Hebrew as default
     return {
-      lang: 'en' as Language,
+      lang: 'he' as Language,
       setLang: () => {},
-      t: (key: string) => translations.en[key] || key,
-      dir: 'ltr' as const,
+      t: (key: string) => translations.he[key] || key,
+      dir: 'rtl' as const,
     };
   }
   return context;

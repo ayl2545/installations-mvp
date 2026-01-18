@@ -10,6 +10,8 @@ interface Order {
   customerName: string;
   siteAddress: string;
   status: string;
+  scheduledDate: string | null;
+  estimatedDays: number | null;
   assignedTeam: { id: string; name: string } | null;
   assignedUser: { id: string; name: string } | null;
 }
@@ -26,7 +28,7 @@ export default function OrdersPageClient({
   orders: Order[]; 
   teams: Team[];
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const translateStatus = useStatusTranslation();
 
   const getStatusClass = (status: string) => {
@@ -38,6 +40,13 @@ export default function OrdersPageClient({
       'DONE': 'badge-done',
     };
     return statusMap[status] || '';
+  };
+
+  const formatDateOnly = (date: string) => {
+    return new Date(date).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   return (
@@ -64,10 +73,9 @@ export default function OrdersPageClient({
                 <tr>
                   <th>{t('orders.externalRef')}</th>
                   <th>{t('orders.customer')}</th>
-                  <th>{t('orders.address')}</th>
+                  <th>{t('orders.scheduledDate')}</th>
                   <th>{t('orders.status')}</th>
                   <th>{t('orders.team')}</th>
-                  <th>{t('orders.assignedTo')}</th>
                   <th>{t('app.actions')}</th>
                 </tr>
               </thead>
@@ -77,15 +85,33 @@ export default function OrdersPageClient({
                     <td>
                       <span className="font-medium">{order.externalRef || '-'}</span>
                     </td>
-                    <td>{order.customerName}</td>
-                    <td className="text-muted text-sm">{order.siteAddress}</td>
+                    <td>
+                      <div>{order.customerName}</div>
+                      <div className="text-muted text-sm">{order.siteAddress}</div>
+                    </td>
+                    <td>
+                      {order.scheduledDate ? (
+                        <div>
+                          <div className="font-medium">{formatDateOnly(order.scheduledDate)}</div>
+                          {order.estimatedDays && (
+                            <div className="text-muted text-sm">{order.estimatedDays} {t('orders.days')}</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
                     <td>
                       <span className={`badge ${getStatusClass(order.status)}`}>
                         {translateStatus(order.status)}
                       </span>
                     </td>
-                    <td>{order.assignedTeam?.name || '-'}</td>
-                    <td>{order.assignedUser?.name || '-'}</td>
+                    <td>
+                      <div>{order.assignedTeam?.name || '-'}</div>
+                      {order.assignedUser && (
+                        <div className="text-muted text-sm">{order.assignedUser.name}</div>
+                      )}
+                    </td>
                     <td>
                       <Link href={`/admin/orders/${order.id}`} className="btn btn-sm btn-secondary">
                         {t('app.view')}

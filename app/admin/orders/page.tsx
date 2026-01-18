@@ -37,12 +37,21 @@ export default async function AdminOrdersPage({
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        { scheduledDate: 'asc' },
+        { createdAt: 'desc' },
+      ],
     }),
     prisma.team.findMany({
       orderBy: { name: 'asc' },
     }),
   ]);
 
-  return <OrdersPageClient orders={orders} teams={teams} />;
+  // Serialize dates for client component
+  const serializedOrders = orders.map((order: typeof orders[number]) => ({
+    ...order,
+    scheduledDate: order.scheduledDate?.toISOString() || null,
+  }));
+
+  return <OrdersPageClient orders={serializedOrders} teams={teams} />;
 }

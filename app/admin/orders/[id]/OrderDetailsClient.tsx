@@ -35,6 +35,8 @@ interface Order {
   assignedTeamId: string | null;
   assignedTeam: { id: string; name: string } | null;
   assignedUser: User | null;
+  scheduledDate: string | null;
+  estimatedDays: number | null;
   createdAt: string;
   updatedAt: string;
   updates: JobUpdate[];
@@ -49,6 +51,18 @@ export default function OrderDetailsClient({ order, teams }: { order: Order; tea
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateForm, setUpdateForm] = useState({ type: 'NOTE', message: '', needs: '' });
+  
+  // New state for assign form
+  const [assignForm, setAssignForm] = useState({
+    teamId: '',
+    scheduledDate: '',
+    estimatedDays: 1,
+  });
+  const [assignError, setAssignError] = useState<string | null>(null);
+  
+  // State for blocked reason modal
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const [blockedReason, setBlockedReason] = useState('');
 
   const getStatusClass = (status: string) => {
     const statusMap: Record<string, string> = {
@@ -71,36 +85,79 @@ export default function OrderDetailsClient({ order, teams }: { order: Order; tea
     });
   };
 
-  async function handleAssign(teamId: string) {
+  const formatDateOnly = (date: string) => {
+    return new Date(date).toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  async function handleAssign(e: React.FormEvent) {
+    e.preventDefault();
     setAssigning(true);
+    setAssignError(null);
+    
     try {
       const res = await fetch(`/api/orders/${order.id}/assign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId }),
+        body: JSON.stringify({
+          teamId: assignForm.teamId,
+          scheduledDate: assignForm.scheduledDate,
+          estimatedDays: assignForm.estimatedDays,
+        }),
       });
 
       if (!res.ok) {
         const error = await res.json();
-        alert(error.error || 'Failed to assign order');
+        if (error.conflictingOrder) {
+          setAssignError(`${t('orders.dateConflict')}: ${error.conflictingOrder.customerName}`);
+        } else {
+          setAssignError(error.error || 'Failed to assign order');
+        }
         return;
       }
 
       router.refresh();
     } catch {
-      alert('Failed to assign order');
+      setAssignError('Failed to assign order');
     } finally {
       setAssigning(false);
     }
   }
 
   async function handleStatusChange(status: string) {
+    // If changing to BLOCKED, show modal for reason
+    if (status === 'BLOCKED') {
+      setShowBlockedModal(true);
+      return;
+    }
+    
+    await updateStatus(status);
+  }
+
+  async function handleBlockedSubmit() {
+    if (!blockedReason.trim()) {
+      alert(t('orders.blockedReasonRequired'));
+      return;
+    }
+    
+    await updateStatus('BLOCKED', blockedReason);
+    setShowBlockedModal(false);
+    setBlockedReason('');
+  }
+
+  async function updateStatus(status: string, blockedReasonText?: string) {
     setUpdatingStatus(true);
     try {
       const res = await fetch(`/api/orders/${order.id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ 
+          status,
+          ...(blockedReasonText ? { blockedReason: blockedReasonText } : {}),
+        }),
       });
 
       if (!res.ok) {
@@ -154,7 +211,7 @@ export default function OrderDetailsClient({ order, teams }: { order: Order; tea
         <div className="page-header">
           <div>
             <h1 className="page-title">{order.customerName}</h1>
-            <p className="text-muted">{order.externalRef || t('orders.externalRef')}: {order.externalRef || '-'}</p>
+            <p className="text-muted">{t('orders.externalRef')}: {order.externalRef || '-'}</p>
           </div>
           <span className={`badge ${getStatusClass(order.status)}`} style={{ fontSize: '1rem', padding: '0.5rem 1rem' }}>
             {translateStatus(order.status)}
@@ -184,6 +241,18 @@ export default function OrderDetailsClient({ order, teams }: { order: Order; tea
                 <span className="details-value">{order.assignedUser?.name || t('orders.unassigned')}</span>
               </div>
               <div className="details-item">
+                <span className="details-label">{t('orders.scheduledDate')}</span>
+                <span className="details-value">
+                  {order.scheduledDate ? formatDateOnly(order.scheduledDate) : '-'}
+                </span>
+              </div>
+              <div className="details-item">
+                <span className="details-label">{t('orders.estimatedDays')}</span>
+                <span className="details-value">
+                  {order.estimatedDays ? `${order.estimatedDays} ${t('orders.days')}` : '-'}
+                </span>
+              </div>
+              <div className="details-item">
                 <span className="details-label">{t('orders.createdAt')}</span>
                 <span className="details-value">{formatDate(order.createdAt)}</span>
               </div>
@@ -207,21 +276,74 @@ export default function OrderDetailsClient({ order, teams }: { order: Order; tea
             </div>
             <div className="card-body">
               {!order.assignedTeamId ? (
-                <div className="form-group">
-                  <select
-                    className="form-select"
-                    onChange={(e) => e.target.value && handleAssign(e.target.value)}
+                <form onSubmit={handleAssign}>
+                  {assignError && (
+                    <div style={{ 
+                      padding: 'var(--space-sm)', 
+                      background: 'var(--danger-light)', 
+                      color: 'var(--danger)', 
+                      borderRadius: 'var(--radius-sm)',
+                      marginBottom: 'var(--space-md)',
+                      fontSize: '0.875rem'
+                    }}>
+                      {assignError}
+                    </div>
+                  )}
+                  <div className="form-group">
+                    <label className="form-label">{t('orders.team')} *</label>
+                    <select
+                      className="form-select"
+                      value={assignForm.teamId}
+                      onChange={(e) => setAssignForm({ ...assignForm, teamId: e.target.value })}
+                      required
+                    >
+                      <option value="">{t('orders.selectTeam')}</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>{team.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('orders.scheduledDate')} *</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={assignForm.scheduledDate}
+                      onChange={(e) => setAssignForm({ ...assignForm, scheduledDate: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">{t('orders.estimatedDays')} *</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={assignForm.estimatedDays}
+                      onChange={(e) => setAssignForm({ ...assignForm, estimatedDays: parseInt(e.target.value) || 1 })}
+                      min={1}
+                      max={30}
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
                     disabled={assigning}
+                    className="btn btn-primary"
                   >
-                    <option value="">{t('orders.selectTeam')}</option>
-                    {teams.map((team) => (
-                      <option key={team.id} value={team.id}>{team.name}</option>
-                    ))}
-                  </select>
-                  {assigning && <p className="text-muted mt-md">{t('app.loading')}</p>}
-                </div>
+                    {assigning ? t('app.loading') : t('orders.assign')}
+                  </button>
+                </form>
               ) : (
-                <p className="text-muted">{t('orders.assignedTo')}: {order.assignedTeam?.name}</p>
+                <div>
+                  <p className="text-muted mb-md">{t('orders.assignedTo')}: {order.assignedTeam?.name}</p>
+                  {order.scheduledDate && (
+                    <p className="text-muted mb-md">{t('orders.scheduledDate')}: {formatDateOnly(order.scheduledDate)}</p>
+                  )}
+                  {order.estimatedDays && (
+                    <p className="text-muted">{t('orders.estimatedDays')}: {order.estimatedDays} {t('orders.days')}</p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -247,6 +369,59 @@ export default function OrderDetailsClient({ order, teams }: { order: Order; tea
             </div>
           </div>
         </div>
+
+        {/* Blocked Reason Modal */}
+        {showBlockedModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}>
+            <div className="card" style={{ maxWidth: '500px', width: '90%' }}>
+              <div className="card-header">
+                <h3>{t('orders.blockedReason')}</h3>
+              </div>
+              <div className="card-body">
+                <div className="form-group">
+                  <label className="form-label">{t('orders.blockedReason')} *</label>
+                  <textarea
+                    className="form-textarea"
+                    value={blockedReason}
+                    onChange={(e) => setBlockedReason(e.target.value)}
+                    rows={3}
+                    placeholder={t('orders.blockedReasonRequired')}
+                    required
+                  />
+                </div>
+                <div className="flex gap-sm">
+                  <button
+                    onClick={handleBlockedSubmit}
+                    disabled={updatingStatus}
+                    className="btn btn-danger"
+                  >
+                    {updatingStatus ? t('app.loading') : t('app.save')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowBlockedModal(false);
+                      setBlockedReason('');
+                    }}
+                    className="btn btn-secondary"
+                  >
+                    {t('app.cancel')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Updates */}
         <div className="card mt-lg">

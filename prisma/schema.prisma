@@ -66,6 +66,8 @@ model Order {
   assignedUserId String?
   assignedTeam   Team?       @relation(fields: [assignedTeamId], references: [id], onDelete: SetNull)
   assignedUser   User?       @relation("AssignedOrders", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  scheduledDate  DateTime?   // Date when installation is scheduled
+  estimatedDays  Int?        // How many days the installation takes
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -74,6 +76,7 @@ model Order {
   @@index([assignedTeamId])
   @@index([assignedUserId])
   @@index([status])
+  @@index([scheduledDate])
 }
 
 model JobUpdate {

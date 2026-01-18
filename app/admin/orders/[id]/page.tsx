@@ -57,6 +57,7 @@ export default async function OrderDetailsPage({
     ...order,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
+    scheduledDate: order.scheduledDate?.toISOString() || null,
     updates: order.updates.map(u => ({
       ...u,
       createdAt: u.createdAt.toISOString(),
